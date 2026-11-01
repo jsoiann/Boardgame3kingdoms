@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-HK"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>天下三分</title>
+<style>
+:root{--bg:#e4e7e1;--ink:#16222c;--pn:#f4f5f1;--ln:#aab4ae;--red:#b2302a;--jade:#2f7d63}
+@media(prefers-color-scheme:dark){:root{--bg:#121b23;--ink:#dde2dc;--pn:#1b2832;--ln:#3b4d5a;--red:#e0584e;--jade:#58b595}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Noto Serif TC","Songti TC","PMingLiU",serif;padding:12px;max-width:720px;margin:auto}
+h1{font-size:34px;letter-spacing:.35em;margin:.4em 0 .1em;color:var(--red)}
+button{font:inherit;color:inherit;background:var(--pn);border:1px solid var(--ln);border-radius:3px;padding:7px 12px;margin:3px 3px 3px 0;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--jade)}button:focus-visible{outline:2px solid var(--jade)}
+button:disabled{opacity:.4;cursor:default}button.m{display:block;width:100%;text-align:left;padding:14px;margin:8px 0}
+button.m small{display:block}
+.pn{background:var(--pn);border-left:4px solid var(--ln);padding:8px 12px;margin:10px 0}.pn.me{border-color:var(--jade)}
+.bar{height:10px;background:var(--ln);position:relative;margin:18px 6px 6px}.bar:before{content:"";position:absolute;left:50%;top:-4px;height:18px;border-left:1px solid var(--ink)}
+.bar i{position:absolute;top:-5px;width:20px;height:20px;background:var(--red);margin-left:-10px;transform:rotate(45deg)}
+small,.lg{opacity:.75}.lg{font-size:13px}.wide{overflow-x:auto}a{color:var(--jade)}
+</style></head><body><div id="app"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script><script src="engine.js"></script><script src="net.js"></script>
+<script>
+const T=TK,buf=[];let S=null,me=0,mode='',ready=1,link='';
+const $=document.getElementById('app'),esc=s=>String(s).replace(/[<&>]/g,c=>({'<':'&lt;','&':'&amp;','>':'&gt;'}[c]));
+function go(a){a.p=me;if(mode=='net')Net.send(a);else if(T.step(S,a)){draw();ail()}}
+function ail(){if(mode!='ai'||!S)return;const a=T.ai(S,1);if(a)setTimeout(()=>{T.step(S,a);draw();ail()},450)}
+function onAct(a){if(!S)buf.push(a);else{T.step(S,a);draw()}}
+function begin(m,seed,idx,rdy){mode=m;me=idx;ready=rdy;S=T.mk(seed);buf.splice(0).forEach(a=>T.step(S,a));draw()}
+function menu(){S=null;mode='';buf.length=0;location.hash='';$.innerHTML=`<h1>天下三分</h1><p class=lg>兩人輕策略 · 魏蜀吳 · 公開資訊 · 約 25 分鐘</p>
+<button class=m onclick=quick()>隨機配對<small>同線上陌生玩家對戰</small></button>
+<button class=m onclick=room()>開房間<small>生成連結，俾朋友入嚟玩</small></button>
+<button class=m onclick="begin('ai',Date.now()%1e9,0,1)">對電腦<small>單人測試規則</small></button>`}
+async function quick(){if(!Net.init())return;$.innerHTML='<h1>天下三分</h1><p>配對緊…</p><button onclick=location.reload()>取消</button>';
+ const r=await Net.quick(onAct,()=>{ready=1;draw()});if(r.guest&&r.seed==null)return menu();
+ begin('net',r.seed,Net.me,r.guest?1:0)}
+async function room(){if(!Net.init())return;const r=await Net.make(onAct,()=>{ready=1;draw()});
+ link=location.origin+location.pathname+'#'+r.id;begin('net',r.seed,0,0)}
+async function joinRoom(id){if(!Net.init())return;const s=await Net.join(id,onAct);if(s==null)return menu();begin('net',s,1,1)}
+const pan=i=>{const P=S.P[i];return`<div class="pn ${i==me?'me':''}"><b>${i==me?'你':'對手'}${P.n?'・'+T.NN[P.n]:''}</b>　資源 ${P.res}　民心 ${P.m}/15<br>${T.U.map(x=>T.UN[x]+P.u[x]).join('　')}　｜　軍營${P.b.b} 市場${P.b.m} 糧倉${P.b.g}<br><span class=lg>武將：${P.gen.map(g=>esc(g.name)+g.ty+g.pw).join('、')||'—'}</span></div>`};
+const gl=(g,extra='')=>`${esc(g.name)}${g.x?'★':''}・${g.ty}${g.pw}　${g.us.map(x=>T.UN[x]).join('')}${extra}`;
+function draw(){if(!S)return;
+ if(mode=='net'&&!ready){$.innerHTML=`<h1>天下三分</h1><p>等緊對手加入…</p>${link?`<p>將呢條連結傳俾朋友：<br><a href="${link}">${link}</a></p>`:''}`;return}
+ const my=S.P[me],op=S.P[1-me],d=S.d;let h=`<h1>天下三分</h1>`;
+ if(S.st=='nation'){h+=`<p>揀你嘅國家（雙方唔可以相同）</p>`+['wei','shu','wu'].map(n=>`<button class=m ${S.nat[me]||S.nat[1-me]==n?'disabled':''} onclick="go({t:'nat',n:'${n}'})">${T.NN[n]}<small>${{wei:'資源多，第 2 階段起每回合 +1；招攬費 +1',shu:'武將強度 +1；民心增加 +1',wu:'長江天險：軍威負值 −2'}[n]}</small></button>`).join('')+(S.nat[me]?'<p class=lg>等對手選擇…</p>':'')}
+ else{const pos=(me?-S.pos:S.pos);
+  h+=`<div class=lg>第 ${S.ph} 階段${S.st=='round'?'・第 '+S.rd+' 回合':''}　軍威線（右＝你領先）</div><div class=bar><i style="left:${(pos+10)*5}%"></i></div>${pan(1-me)}${pan(me)}`;
+  if(S.st=='draft'){const pk=d.step%2==0,mine=!d.done[me];
+   h+=`<div class=pn><b>${pk?'揀一位武將':'替對手棄一位武將'}</b>${mine?'':'　<span class=lg>等對手…</span>'}<br>`+
+    (pk?my.pool.map((g,i)=>`<button ${mine?'':'disabled'} onclick="go({t:'pick',i:${i}})">${gl(g,'　'+g.cost+'費')}</button>`).join('')
+       :op.pool.map((g,i)=>`<button ${mine?'':'disabled'} onclick="go({t:'drop',i:${i}})">棄　${gl(g,'　'+g.cost+'費')}</button>`).join(''))+
+    `<div class=lg>已選：${my.kept.map(g=>esc(g.name)).join('、')||'—'}</div></div>`}
+  if(S.st=='round'){const mt=S.turn==me;
+   h+=`<div class=pn><b>${mt?'輪到你':'等對手…'}</b>　<span class=lg>市集（預告：${S.mk.deck.slice(0,2).map(c=>c.t=='u'?T.UN[c.x]+'升級':{b:'軍營',m:'市場',g:'糧倉'}[c.x]+'升級').join('、')||'—'}）</span><div class=wide>`+
+    S.mk.up.map((c,i)=>{const k=T.cc(my,c);return`<button ${mt&&k>=0&&my.res>=k?'':'disabled'} onclick="go({t:'buy',i:${i}})">${c.t=='u'?T.UN[c.x]+'兵 +1':{b:'軍營',m:'市場',g:'糧倉'}[c.x]+' 升級'}　${k<0?'已滿':k+'資源'}</button>`}).join('')+
+    `</div><div class=lg>待招攬武將（本階段內要招攬）</div>`+my.kept.map((g,i)=>{const c=T.gc(S,me,g);return`<button ${mt&&my.res>=c?'':'disabled'} onclick="go({t:'rec',i:${i}})">${gl(g,'　'+c+'資源')}</button>`}).join('')+
+    `<br><button ${mt?'':'disabled'} onclick="go({t:'pass'})">結束本回合（Pass）</button></div>`}
+  if(S.st=='settle'){h+=`<div class=pn><b>階段結算：軍營加持邊個兵種？</b>${S.set[me]?'　<span class=lg>等對手…</span>':''}<br>`+
+    T.U.map(x=>`<button ${S.set[me]?'disabled':''} onclick="go({t:'bar',x:'${x}'})">${T.UN[x]}</button>`).join('')+`</div>`}
+  if(S.st=='end'){const w=S.win;h+=`<div class=pn><b style="font-size:20px">${w==2?'平手':w==me?'你勝出！':'對手勝出'}</b><br><button onclick="menu()">返回主頁</button></div>`}
+  h+=`<div class="lg">${S.log.slice(-6).map(esc).join('<br>')}</div>`}
+ $.innerHTML=h}
+if(location.hash.length>1)joinRoom(location.hash.slice(1));else menu();
+</script></body></html>
